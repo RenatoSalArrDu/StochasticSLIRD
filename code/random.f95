@@ -3,7 +3,7 @@
 module random
 real, private             :: zero = 0.0, half = 0.5, one = 1.0, two = 2.0
 private                   :: integral
-public                    :: init_random_seed, random_unif, random_Poisson
+public                    :: init_random_seed, random_unif, random_Poisson, random_exp
 
 contains
 
