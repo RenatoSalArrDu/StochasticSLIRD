@@ -1,6 +1,6 @@
 program rsir
 use my_init
-use random, only: random_Poisson, random_unif, init_random_seed
+use random, only: random_Poisson, random_unif, init_random_seed, random_exp
 use mcintegral, only: mc_int
 use conf, only: mconf, rtf_n
 use quartiles, only: quart
@@ -14,7 +14,7 @@ integer :: ni, ns, nr, nl, nd, sic, nod, t_recov, t_laten, &
 real :: rot
 
 integer, allocatable :: vr(:), vl(:), vd(:), vsic(:) ! memory vectors
-!real, allocatable :: v_ran(:)     ! vector
+real, allocatable :: v_ran(:)     ! vector
 integer, allocatable :: vnl(:), vns(:), vni(:), vnr(:), & !cummulant vectors
                         vnp(:), vnd(:)
 
@@ -38,15 +38,20 @@ real(wp), allocatable :: cumv(:,:), cv(:), area(:), incv(:,:)
 real :: start, finish
 
 real(wp) :: wpar(3,10)
+
+integer :: ivl(4)
+integer :: rop
+
 ! =======================================================!
 
 call cpu_time(start)
 call init_random_seed() ! generate random seed
 
+
 !======== read initial conditions and parameters ========!
 open(unit=23, file='par.dat', status='old')
-read(23,*) ini, ins, inr, inl, ind, t_recov, t_laten, ntot, &
-           ro, hop, leth, cop, traj, tsh, opt, wop
+read(23,*) ini, ins, inr, ivl(1), ivl(2), ivl(3), ivl(4), ind, t_recov, t_laten, ntot, &
+           ro, hop, leth, cop, traj, tsh, opt, wop, rop
 close(unit=23)
 
 open(unit=24,file='wpar.dat',status='old')
@@ -65,8 +70,18 @@ write(20 ,'(i8,6ES24.13E3)')  0 , dfloat(inl), dfloat(ins) , dfloat(ini) ,&
 ! =======================================================!
 ! one colud in principal introduce fluctuations around rot to simulate
 !super or subpar infectious events
-! allocate( v_ran( (ini + ins + inr + inl + ind)*t_infecc ) )
-! v_ran = rot
+if (rop/=0) then
+  allocate( v_ran( (ini + ins + inr + inl + ind)*t_infecc ) )
+  do i= 1 , size(v_ran)
+    if (rop==1) then
+      v_ran(i) =  real( random_unif(rero , two* real(rot,wp)) )
+    elseif (rop==2) then
+      v_ran(i) = real(random_exp(1._sp/rot))
+    elseif (rop==3) then
+      v_ran(i) =  real(random_Poisson(rot , .true.))
+    end if
+  enddo
+endif
 
 ! =============================================================================!
 !============== begining of trajectories calculation ==========================!
@@ -104,7 +119,7 @@ do k = 1 , traj
 
   lb = 1
 
-  vnl(1) = inl
+  vnl(1) = ivl(4)
   vns(1) = ins
   vni(1) = ini
   vnr(1) = inr
@@ -117,13 +132,16 @@ do k = 1 , traj
   nr = 0
   nd = 0
 
-  vr = 0
-  vl = 0
-  vd = 0
   cumvl = ini
   cf = one
 
   erst=0
+
+  vl(1) = ivl(1)
+  vl(2) = ivl(2)
+  vl(3) = ivl(3)
+  vl(4) = ivl(4)
+
 
 !=================== Single trajectories calculation ==========================!
   do j = 1  , ntot
@@ -148,26 +166,11 @@ do k = 1 , traj
         cf = one
       else if (cop==2.and.wop==0) then  ! piecewise confinement
         cf = mconf(j,wpar)
-      else if (cop == 3.and.wop==0 .and.  & !confinement upon the cumulative of te incidence
-            dfloat(vni(j)) / dfloat(vnp(1)) >= io) then
+      else if (cop == 3.and.wop==0 .and.  & !confinement upon the cumulative of the incidence
+               dfloat(vni(j)) / dfloat(vnp(1)) >= io) then
         cf = exp(- gamma**2 * (dfloat(vni(j)) / dfloat(vnp(1)))**2)
       else if (cop == 4.and.wop==1) then  !confinement upon empirical R(t)
-        if (ni >= 1000 .and. erst==0) then
-          erst=1
-          if (rt_n(j) > one) then
-           cf = mconf(j,wpar)
-          elseif ( rt_n(j) < one ) then
-           cf = rt_n(j)
-          end if
-        else if (erst==1) then
-          if (rt_n(j) > one) then
-           cf = mconf(j,wpar)
-          elseif ( rt_n(j) < one ) then
-           cf = rt_n(j)
-          end if
-        else
-          cf = mconf(j,wpar)
-        endif
+        cf = rt_n(j)
       endif
 
       if (wop==1) then
@@ -204,8 +207,11 @@ do k = 1 , traj
       else ! ----------- > total number susceptible in contagious domains
         sic =  0
         do i = 1, ni
-          ! nsap = random_Poisson( v_ran(lb) * real(w) ,.true.)
+          if (rop/=0) then
+            nsap = random_Poisson( v_ran(lb) * real(w) ,.true.)
+          else
             nsap = random_Poisson( rot * real(w) ,.true.)
+          endif
           lb = lb + 1
           sic = sic + nsap
         ! we give here certain conditions to avoid having negative numbers
