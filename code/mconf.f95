@@ -45,12 +45,6 @@ public :: mconf, rtf_n
    real(wp), intent(in) :: wpar(3,10)
    integer :: i
 
-   ! open(unit=5,file='wpar.dat',status='old')
-   ! do i = 1 , 10
-   !   read(5,*) wpar(1,i), wpar(2,i),  wpar(3,i)
-   ! enddo
-   ! close(unit=5)
-
 
    if ( j <= int(wpar(3,1)) ) then
      cf  =  one
