@@ -57,9 +57,6 @@ cop=4
 #--------------- Confinement measures function
 opt=1 #opt 0 write all trajectories, else not
 
-#--------------- Simulations modes
-wopt=1 # wopt=0 conceptual features, wopt=1 simulation of real cases based on empirical wt
-
 # ==========================================!
 
 data=Mexico_covid-19_datas
